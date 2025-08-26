@@ -138,6 +138,32 @@ class BaseScrapper(ABC):
     def _parse_article_list(self, soup: BeautifulSoup) -> List[Dict]:
         pass
 
+    def get_headlines_summary(self, headlines: List[Dict]) -> Dict:
+        """
+        Provides a summary of the headlines scraped and their relevance to
+        bitcoin/crypto.
+        :param headlines: List containing the headlines scraped from the
+        source.
+        :return: Dictionary containing a summary of the scraped headlines
+        including the total number of headlines, the number of headlines
+        related to bitcoin, the source, and the range of the oldest and
+        latest publish date of the headline.
+        """
+        if not headlines:
+            return {"total": 0, "bitcoin_related": 0, "sources": []}
 
+        bitcoin_count = sum(1 for headline in headlines if
+                            self._is_bitcoin_related(headline.get('title', '')))
 
+        return {
+            "total": len(headlines),
+            "bitcoim_related": bitcoin_count,
+            "source": self.source_name,
+            "date_range" : {
+                "earliest": min(headline.get('published_at', datetime.now(
 
+                )) for headline in headlines),
+                "latest": max(headline.get('published_at', datetime.now())
+                              for headline in headlines)
+            }
+        }
