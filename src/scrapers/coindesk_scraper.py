@@ -6,6 +6,7 @@ Created by: Renesh Ravi
 """
 
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
@@ -108,31 +109,39 @@ class CoindeskScraper(BaseScraper):
     def _parse_article_list(self, soup: BeautifulSoup) -> List[Dict]:
 
         headlines = []
-        article_selectors = [
-            'article[data-module="ContentCard"]',
-            '.card-content',
-            '.article-card',
-            '[data-testid="Card"]'
-        ]
 
-        articles = []
-        for selector in article_selectors:
-            articles = soup.select(selector)
-            if articles:
-                break
+        # Use the link-based strategy that we know works
+        try:
+            headlines = self._strategy_link_based(soup)
+            if headlines:
+                logger.info(
+                    f"Link-based strategy found {len(headlines)} headlines")
+                return headlines
+        except Exception as e:
+            logger.error(f"Link-based strategy failed: {e}")
 
-        if not articles:
-            articles = soup.find_all('article')
+        # Fallback to generic articles
+        try:
+            headlines = self._strategy_generic_articles(soup)
+            if headlines:
+                logger.info(
+                    f"Generic articles strategy found {len(headlines)} headlines")
+                return headlines
+        except Exception as e:
+            logger.error(f"Generic articles strategy failed: {e}")
 
-        for article in articles:
-            try:
-                headline_data = self._extract_headline_data(article)
-                if headline_data:
-                    headlines.append(headline_data)
-            except Exception as e:
-                logger.debug(f"Error parsin article: {e}")
-                continue
-        return headlines
+        # Last resort: heading-based
+        try:
+            headlines = self._strategy_heading_based(soup)
+            if headlines:
+                logger.info(
+                    f"Heading-based strategy found {len(headlines)} headlines")
+                return headlines
+        except Exception as e:
+            logger.error(f"Heading-based strategy failed: {e}")
+
+        logger.warning("All parsing strategies failed")
+        return []
 
     def _extract_headline_data(self, article_element) -> Optional[Dict]:
         try:
