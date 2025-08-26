@@ -104,4 +104,18 @@ class BaseScrapper(ABC):
         """
         return urljoin(self.base_url, relative_url)
 
+    def _is_bitcoin_related(self, text: str) -> bool:
+        """
+        Determine whether a given text is related to Bitcoin or cryptocurrency.
+        :param text: The text string (e.g., headline or article snippet) to check for Bitcoin-related content.
+        :return: True if the text contains any Bitcoin or crypto-related keywords, otherwise False.
+        """
+        bitcoin_keywords = {
+            'bitcoin', 'btc', 'blockchain', 'cryptocurrency', 'crypto',
+            'hodl', 'mining', 'halving', 'whale', 'pump', 'dump', 'moon',
+            'bearish', 'bullish', 'bear', ' bull'
+        }
+
+        text_lower = text.lower()
+        return any(keyword in text_lower for keyword in bitcoin_keywords)
 
