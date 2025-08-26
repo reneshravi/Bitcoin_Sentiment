@@ -67,3 +67,11 @@ class BaseScrapper(ABC):
             else:
                 logger.error(f"Max retries exceeded for {url}")
                 return None
+
+    def _parse_html(self, html_content: str) -> BeautifulSoup:
+        """
+        Parse raw HTML content into a BeautifulSoup object.
+        :param html_content: The raw HTML content as a string.
+        :return: A BeautifulSoup object parsed with the 'html.parser'
+        """
+        return BeautifulSoup(html_content, 'html.parser')
