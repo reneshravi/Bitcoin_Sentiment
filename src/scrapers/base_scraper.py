@@ -119,3 +119,13 @@ class BaseScrapper(ABC):
         text_lower = text.lower()
         return any(keyword in text_lower for keyword in bitcoin_keywords)
 
+    def _extract_publish_date(self, article_element) -> Optional[datetime]:
+        """
+        Extract the date from an article element.
+        :param article_element:  The HTML element or parsed object
+        representing the article container
+        :return:  The extracted publish date if available or a
+        default placeholder value.
+        """
+        return datetime.now()
+
