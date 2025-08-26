@@ -28,9 +28,12 @@ class CoindeskScraper(BaseScraper):
             source_name="CoinDesk"
         )
         self.potential_urls = [
-            f"{self.base_url}/tag/bitcoin/",  # Bitcoin-specific tag page
-            f"{self.base_url}/",  # Homepage (lots of content)
-            f"{self.base_url}/markets/",  # Markets section
+            f"{self.base_url}/tag/bitcoin/",        # Bitcoin-specific tag page
+            f"{self.base_url}/",                    # Homepage
+            f"{self.base_url}/markets/",            # Markets
+            f"{self.base_url}/tag/cryptocurrency/", # Broader crypto news
+            f"{self.base_url}/policy/",             # Policy news
+            f"{self.base_url}/tech/",               # Tech news
         ]
 
     def get_bitcoin_headlines(self, limit: int = 50, days_back: int = 7) -> \
@@ -353,7 +356,7 @@ def test_coindesk_scraper():
         print("=" * 50)
 
         scraper = CoindeskScraper()
-        headlines = scraper.get_bitcoin_headlines(limit=10)
+        headlines = scraper.get_bitcoin_headlines(limit=50)
 
         print(f"\n RESULTS: Scraped {len(headlines)} headlines")
         print("=" * 60)
