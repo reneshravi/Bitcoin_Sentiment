@@ -14,15 +14,14 @@ from bs4 import BeautifulSoup
 from base_scraper import BaseScraper
 
 logger = logging.getLogger(__name__)
+
 class CoindeskScraper(BaseScraper):
-    """
-    Coindesk Scrapper class
-    """
+    """Headline scraper for CoinDesk Bitcoin news"""
 
     def __init__(self):
         """
         Initializes the CoinDesk scraper by passing in the appropriate
-        arguments
+        arguments.
         """
         super().__init__(
             base_url="https://www.coindesk.com",
@@ -35,7 +34,7 @@ class CoindeskScraper(BaseScraper):
         ]
 
     def get_bitcoin_headlines(self, limit: int = 50, days_back: int = 7) -> \
-            List[Dict]:
+    List[Dict]:
         """
         Scrape bitcoin headlines from CoinDesk.
         :param limit: Maximum number of headlines to return.
@@ -43,9 +42,7 @@ class CoindeskScraper(BaseScraper):
         :return: List of headline dictionaries.
         """
         logger.info(f"Scraping Bitcoin headlines from {self.source_name}")
-
         headlines = []
-        page = 1
 
         for url in self.potential_urls:
             logger.info(f"Trying URL: {url}")
@@ -62,7 +59,7 @@ class CoindeskScraper(BaseScraper):
                     logger.info(
                         f"Found {len(page_headlines)} headlines from {url}")
                     headlines.extend(page_headlines)
-                    break  # Success! Use this URL
+                    break
                 else:
                     logger.info(f"No headlines found from {url}")
             except Exception as e:
@@ -73,19 +70,17 @@ class CoindeskScraper(BaseScraper):
             logger.warning("No headlines found from any URL")
             return []
 
-        # Filter for Bitcoin-related content and by date
+
         cutoff_date = datetime.now() - timedelta(days=days_back)
         bitcoin_headlines = []
 
         for headline in headlines:
             try:
-                # Check if Bitcoin-related
                 title_text = headline.get('title', '')
                 summary_text = headline.get('summary', '')
                 combined_text = f"{title_text} {summary_text}"
 
                 if self._is_bitcoin_related(combined_text):
-                    # Check date if available
                     pub_date = headline.get('published_at', datetime.now())
                     if pub_date >= cutoff_date:
                         bitcoin_headlines.append(headline)
@@ -107,10 +102,9 @@ class CoindeskScraper(BaseScraper):
         return final_headlines
 
     def _parse_article_list(self, soup: BeautifulSoup) -> List[Dict]:
-
+        """Parse articles using the link-based strategy that works reliably"""
         headlines = []
 
-        # Use the link-based strategy that we know works
         try:
             headlines = self._strategy_link_based(soup)
             if headlines:
@@ -130,7 +124,6 @@ class CoindeskScraper(BaseScraper):
         except Exception as e:
             logger.error(f"Generic articles strategy failed: {e}")
 
-        # Last resort: heading-based
         try:
             headlines = self._strategy_heading_based(soup)
             if headlines:
@@ -143,116 +136,259 @@ class CoindeskScraper(BaseScraper):
         logger.warning("All parsing strategies failed")
         return []
 
-    def _extract_headline_data(self, article_element) -> Optional[Dict]:
+    def _strategy_link_based(self, soup: BeautifulSoup) -> List[Dict]:
+        """Link-based extraction - proven to work with CoinDesk"""
+        headlines = []
+
+        news_patterns = [
+            r'/\d{4}/\d{2}/\d{2}/',  # Date-based URLs
+            r'/markets/',
+            r'/policy/',
+            r'/tech/',
+            r'/business/',
+            r'/news/'
+        ]
+
+        all_links = soup.find_all('a', href=True)
+
+        for link in all_links:
+            try:
+                href = link.get('href', '')
+                text = self._clean_text(link.get_text())
+
+                # Skip empty text or very short text
+                if not text or len(text) < 10:
+                    continue
+
+                if any(re.search(pattern, href) for pattern in news_patterns):
+                    pub_date = self._safe_extract_date_from_url(href)
+
+                    time_enhanced_date = self._safe_extract_time_from_context(
+                        link, pub_date)
+
+                    headline_data = {
+                        'title': text,
+                        'url': self._build_absolute_url(href),
+                        'summary': '',
+                        'source': self.source_name,
+                        'published_at': time_enhanced_date,
+                        'scraped_at': datetime.now(),
+                        'bitcoin_related': self._is_bitcoin_related(text)
+                    }
+
+                    headlines.append(headline_data)
+            except Exception as e:
+                logger.debug(f"Error processing link: {e}")
+                continue
+
+        return headlines
+
+    def _safe_extract_date_from_url(self, url: str) -> datetime:
+        """Safely extract date from URL with fallback"""
         try:
-            title_selectors = [
-                'h2 a', 'h3 a', 'h4 a',  # Title in heading with link
-                '.card-title a', '.article-title a',  # Common class names
-                'a[data-module="Headline"]',  # CoinDesk specific
-                '.headline a'
-            ]
-            title_element = None
-            title = ""
-            url = ""
+            date_pattern = r'/(\d{4})/(\d{2})/(\d{2})/'
+            match = re.search(date_pattern, url)
 
-            for selector in title_selectors:
-                title_element = article_element.select_one(selector)
-                if title_element:
-                    title = self._clean_text(title_element.get_text())
-                    url = title_element.get('href','')
-                    break
-
-            if not title:
-                for selector in ['h2', 'h3', 'h4', '.card-title',
-                                 '.article-title']:
-                    title_element = article_element.select_one(selector)
-                    if title_element:
-                        title = self._clean_text(title_element.get_text())
-                        break
-
-            if not title:
-                return None
-
-            if url:
-                url = self._build_absolute_url(url)
-                published_at = self._extract_publish_date(article_element)
-                summary_selectors = [
-                    '.card-description', '.article-summary', '.excerpt',
-                    '.summary', 'p'
-                ]
-
-                summary = ""
-                for selector in summary_selectors:
-                    summary_element = article_element.select_one(selector)
-                    if summary_element:
-                        summary = self._clean_text(summary_element.get_text())
-                        if len(summary) > 50:
-                            break
-
-                return {
-                    'title': title,
-                    'url': url,
-                    'summary': summary,
-                    'source': self.source_name,
-                    'published_at': published_at,
-                    'scraped_at': datetime.now(),
-                    'bitcoin_related': self._is_bitcoin_related(
-                        title + " " + summary)
-                }
-
+            if match:
+                year, month, day = match.groups()
+                return datetime(int(year), int(month), int(day))
         except Exception as e:
-            logger.debug(f"Error extracting headline data: {e}")
-            return None
+            logger.debug(f"Error extracting date from URL {url}: {e}")
 
-    def _extract_publish_date(self, article_element) -> datetime:
-        """Extract publish date from article element"""
-        date_selectors = [
-            'time', '[datetime]', '.date', '.publish-date',
-            '[data-testid="PublishDate"]', '.card-date'
-            ]
-
-        for selector in date_selectors:
-            date_element = article_element.select_one(selector)
-            if date_element:
-                # Try to get datetime attribute first
-                datetime_attr = date_element.get('datetime')
-                if datetime_attr:
-                        try:
-                            return datetime.fromisoformat(
-                                datetime_attr.replace('Z', '+00:00'))
-                        except:
-                            pass
-
-                    # Try to parse text content
-                date_text = date_element.get_text().strip()
-                if date_text:
-                        try:
-                            # Handle common formats
-                            for fmt in ['%Y-%m-%d', '%B %d, %Y', '%b %d, %Y',
-                                        '%m/%d/%Y']:
-                                try:
-                                    return datetime.strptime(date_text, fmt)
-                                except:
-                                    continue
-                        except:
-                            pass
-
-            # Default to current time if no date found
         return datetime.now()
 
-    # Quick test function
+    def _safe_extract_time_from_context(self, link_element,
+                                        base_date: datetime) -> datetime:
+        """Safely try to extract time from surrounding context"""
+        try:
+
+            parent = link_element.parent
+            if parent:
+
+                time_spans = parent.find_all('span')
+
+                for span in time_spans:
+                    text = span.get_text().strip()
+
+
+                    if self._looks_like_coindesk_timestamp(text):
+                        parsed_time = self._safe_parse_coindesk_timestamp(
+                            text)
+                        if parsed_time:
+
+                            return datetime.combine(base_date.date(),
+                                                    parsed_time.time())
+        except Exception as e:
+            logger.debug(f"Error extracting time from context: {e}")
+
+        return base_date
+
+    def _looks_like_coindesk_timestamp(self, text: str) -> bool:
+        """Check if text looks like CoinDesk timestamp - with safe error handling"""
+        try:
+            if not text or len(text.strip()) < 10:
+                return False
+
+
+            coindesk_pattern = r'[A-Za-z]{3}\s+\d{1,2},\s+\d{4},\s+\d{1,2}:\d{2}\s+[ap]\.m\.'
+            return bool(re.search(coindesk_pattern, text))
+        except Exception as e:
+            logger.debug(f"Error checking timestamp pattern: {e}")
+            return False
+
+    def _safe_parse_coindesk_timestamp(self, datetime_str: str) -> Optional[
+        datetime]:
+        """Safely parse CoinDesk timestamp with extensive error handling"""
+        try:
+            if not datetime_str:
+                return None
+
+            datetime_str = datetime_str.strip()
+
+
+            if 'a.m.' in datetime_str or 'p.m.' in datetime_str:
+                datetime_str = datetime_str.replace('a.m.', 'AM').replace(
+                    'p.m.', 'PM')
+
+
+            try:
+                return datetime.strptime(datetime_str, '%b %d, %Y, %I:%M %p')
+            except ValueError:
+                pass
+
+            # Try date-only format
+            try:
+                return datetime.strptime(datetime_str, '%b %d, %Y')
+            except ValueError:
+                pass
+
+        except Exception as e:
+            logger.debug(f"Error parsing timestamp '{datetime_str}': {e}")
+
+        return None
+
+    def _strategy_generic_articles(self, soup: BeautifulSoup) -> List[Dict]:
+        """Generic article extraction"""
+        headlines = []
+        articles = soup.find_all('article')
+
+        for article in articles:
+            try:
+
+                links = article.find_all('a', href=True)
+
+                best_link = None
+                best_text = ""
+
+                for link in links:
+                    text = self._clean_text(link.get_text())
+                    if len(text) > len(best_text) and len(text) > 15:
+                        best_link = link
+                        best_text = text
+
+                if best_link:
+                    href = best_link.get('href', '')
+                    pub_date = self._safe_extract_date_from_url(href)
+
+                    headlines.append({
+                        'title': best_text,
+                        'url': self._build_absolute_url(href),
+                        'summary': '',
+                        'source': self.source_name,
+                        'published_at': pub_date,
+                        'scraped_at': datetime.now(),
+                        'bitcoin_related': self._is_bitcoin_related(best_text)
+                    })
+            except Exception as e:
+                logger.debug(f"Error processing article: {e}")
+                continue
+
+        return headlines
+
+    def _strategy_heading_based(self, soup: BeautifulSoup) -> List[Dict]:
+        """Heading-based extraction"""
+        headlines = []
+        heading_tags = soup.find_all(['h1', 'h2', 'h3', 'h4'])
+
+        for heading in heading_tags:
+            try:
+                text = self._clean_text(heading.get_text())
+
+                if not text or len(text) < 15:
+                    continue
+
+                url = ""
+                link = heading.find('a') or heading.find_parent('a')
+                if link:
+                    href = link.get('href', '')
+                    url = self._build_absolute_url(href)
+                    pub_date = self._safe_extract_date_from_url(href)
+                else:
+                    pub_date = datetime.now()
+
+                headlines.append({
+                    'title': text,
+                    'url': url,
+                    'summary': '',
+                    'source': self.source_name,
+                    'published_at': pub_date,
+                    'scraped_at': datetime.now(),
+                    'bitcoin_related': self._is_bitcoin_related(text)
+                })
+            except Exception as e:
+                logger.debug(f"Error processing heading: {e}")
+                continue
+
+        return headlines
+
+
 def test_coindesk_scraper():
-        """Test the CoinDesk scraper"""
+        """Test the updated CoinDesk scraper"""
+        import logging
+
+        logging.basicConfig(level=logging.INFO,
+                            format='%(levelname)s: %(message)s')
+
+        print(" TESTING COINDESK SCRAPER")
+        print("=" * 50)
+
         scraper = CoindeskScraper()
         headlines = scraper.get_bitcoin_headlines(limit=10)
 
-        print(f"Scraped {len(headlines)} headlines:")
-        for i, headline in enumerate(headlines, 1):
-            print(f"{i}. {headline['title']}")
-            print(f"   Source: {headline['source']}")
-            print(f"   Bitcoin related: {headline['bitcoin_related']}")
-            print(f"   Published: {headline['published_at']}")
-            print()
+        print(f"\n RESULTS: Scraped {len(headlines)} headlines")
+        print("=" * 60)
+
+        if headlines:
+            times_with_hours = 0
+            for i, headline in enumerate(headlines, 1):
+                pub_time = headline['published_at']
+
+                # Check if we got actual time (not just midnight)
+                has_time = pub_time.hour != 0 or pub_time.minute != 0
+                if has_time:
+                    times_with_hours += 1
+                    time_marker = ""
+                else:
+                    time_marker = ""
+
+                print(
+                    f"{i:2d}. {'' if headline['bitcoin_related'] else ''} {headline['title']}")
+                if headline['url']:
+                    print(f"     {headline['url']}")
+                print(
+                    f"    {time_marker} {headline['published_at'].strftime('%Y-%m-%d %H:%M')}")
+                print()
+
+            print(f"Results:")
+            print(f"   • Total headlines: {len(headlines)}")
+            print(
+                f"   • Bitcoin-related: {sum(1 for h in headlines if h['bitcoin_related'])}")
+            print(f"   • With full timestamps: {times_with_hours}")
+            print(f"   • With date only: {len(headlines) - times_with_hours}")
+            print("     CoinDesk scraper is working")
+
+        else:
+            print("No headlines found")
 
 if __name__ == "__main__":
     test_coindesk_scraper()
