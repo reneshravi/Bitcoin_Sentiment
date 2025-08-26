@@ -129,3 +129,15 @@ class BaseScrapper(ABC):
         """
         return datetime.now()
 
+    @abstractmethod
+    def get_bitcoin_headlines(self, limit: int = 50, days_back: int = 7) ->\
+            List[Dict]:
+            pass
+
+    @abstractmethod
+    def _parse_article_list(self, soup: BeautifulSoup) -> List[Dict]:
+        pass
+
+
+
+
