@@ -27,8 +27,11 @@ class CoindeskScraper(BaseScraper):
             base_url="https://www.coindesk.com",
             source_name="CoinDesk"
         )
-        self.bitcoin_section_url = f"{self.base_url}/tag/bitcoin"
-
+        self.potential_urls = [
+            f"{self.base_url}/tag/bitcoin/",  # Bitcoin-specific tag page
+            f"{self.base_url}/",  # Homepage (lots of content)
+            f"{self.base_url}/markets/",  # Markets section
+        ]
 
     def get_bitcoin_headlines(self, limit: int = 50, days_back: int = 7) -> \
             List[Dict]:
@@ -42,42 +45,65 @@ class CoindeskScraper(BaseScraper):
 
         headlines = []
         page = 1
-        while len(headlines) < limit:
-            page_url = f"{self.bitcoin_section_url}?page={page}"
-            response = self._make_request(page_url)
 
-            if not response:
-                logger.warning(f"Failed to fetch page {page}")
-                break
+        for url in self.potential_urls:
+            logger.info(f"Trying URL: {url}")
 
-            soup = self._parse_html(response.content)
-            page_headlines = self._parse_article_list(soup)
+            try:
+                response = self._make_request(url)
+                if not response:
+                    continue
 
-            if not page_headlines:
-                logger.info(f"No more headlines found on page {page}")
-                break
+                soup = self._parse_html(response.content)
+                page_headlines = self._parse_article_list(soup)
 
-            cutoff_date = datetime.now() - timedelta(days=days_back)
-            valid_headlines = [
-                headline for headline in page_headlines if headline.get(
-                    'published_at', datetime.now()) >= cutoff_date
-            ]
+                if page_headlines:
+                    logger.info(
+                        f"Found {len(page_headlines)} headlines from {url}")
+                    headlines.extend(page_headlines)
+                    break  # Success! Use this URL
+                else:
+                    logger.info(f"No headlines found from {url}")
+            except Exception as e:
+                logger.error(f"Error processing {url}: {e}")
+                continue
 
-            headlines.extend(valid_headlines)
+        if not headlines:
+            logger.warning("No headlines found from any URL")
+            return []
 
-            if len(valid_headlines) < len(page_headlines):
-                break
+        # Filter for Bitcoin-related content and by date
+        cutoff_date = datetime.now() - timedelta(days=days_back)
+        bitcoin_headlines = []
 
-            page += 1
+        for headline in headlines:
+            try:
+                # Check if Bitcoin-related
+                title_text = headline.get('title', '')
+                summary_text = headline.get('summary', '')
+                combined_text = f"{title_text} {summary_text}"
 
-            headlines = headlines[:limit]
-            headlines.sort(key=lambda x: x.get('published_at',
-                                               datetime.min), reverse=True)
+                if self._is_bitcoin_related(combined_text):
+                    # Check date if available
+                    pub_date = headline.get('published_at', datetime.now())
+                    if pub_date >= cutoff_date:
+                        bitcoin_headlines.append(headline)
+            except Exception as e:
+                logger.debug(f"Error filtering headline: {e}")
+                continue
 
-            logger.info(f"Successfully scraped {len(headlines)} headlines "
-                        f"from {self.source_name}")
+        # Sort by date and limit results
+        try:
+            bitcoin_headlines.sort(
+                key=lambda x: x.get('published_at', datetime.min),
+                reverse=True)
+        except Exception as e:
+            logger.debug(f"Error sorting headlines: {e}")
 
-        return headlines
+        final_headlines = bitcoin_headlines[:limit]
+        logger.info(
+            f"Successfully filtered to {len(final_headlines)} Bitcoin headlines")
+        return final_headlines
 
     def _parse_article_list(self, soup: BeautifulSoup) -> List[Dict]:
 
