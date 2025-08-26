@@ -167,3 +167,11 @@ class BaseScrapper(ABC):
                               for headline in headlines)
             }
         }
+
+    def __repr__(self):
+        """
+        Provide a string representation of web scraper
+        :return: String representation of this web scraper class and its
+        source
+        """
+        return f"<{self.__class__.__name__}(source='{self.source_name}')>"
