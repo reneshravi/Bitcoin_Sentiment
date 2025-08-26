@@ -20,7 +20,7 @@ from config.settings import (
 
 logger = logging.getLogger(__name__)
 
-class BaseScrapper(ABC):
+class BaseScraper(ABC):
     """
     Base class for all news scrapers
     """
