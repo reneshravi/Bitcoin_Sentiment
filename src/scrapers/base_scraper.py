@@ -94,3 +94,14 @@ class BaseScrapper(ABC):
         cleaned = cleaned.replace('\u201d', '"')
 
         return cleaned.strip()
+
+    def _build_absolute_url(self, relative_url: str) -> str:
+        """
+        Construct an absolute URL from a relative path using the scraper's base URL.
+        :param relative_url: A relative path or partial URL (e.g., '/news/article123')
+                            extracted from the HTML.
+        :return: Absolute URL that combines the scraper's base URL with the provided relative path.
+        """
+        return urljoin(self.base_url, relative_url)
+
+
