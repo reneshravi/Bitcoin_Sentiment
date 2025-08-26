@@ -75,3 +75,22 @@ class BaseScrapper(ABC):
         :return: A BeautifulSoup object parsed with the 'html.parser'
         """
         return BeautifulSoup(html_content, 'html.parser')
+
+    def _clean_text(self, text: str) -> str:
+        """
+        Cleans and normalizes the text from the HTML extraction.
+        :param text: The raw text string to be cleaned.
+        :return: The normalized text with extra whitespace removed and common
+        Unicode characters (non-breaking spaces, smart quotes, curly apostrophes) replaced with plain ASCII equivalents.
+        """
+        if not text:
+            return ""
+
+        cleaned = ' '.join(text.split())
+
+        cleaned = cleaned.replace('\u00a0', ' ')
+        cleaned = cleaned.replace('\u2019', "'")
+        cleaned = cleaned.replace('\u201c', '"')
+        cleaned = cleaned.replace('\u201d', '"')
+
+        return cleaned.strip()
