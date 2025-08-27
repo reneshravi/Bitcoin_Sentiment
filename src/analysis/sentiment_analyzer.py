@@ -229,8 +229,8 @@ class SentimentAnalyzer:
             'NEUTRAL': neu_prob
         }
 
-    def analyze_batch(self, headlines: List[Union[str, Dict]], batch_size:
-        int = 16) -> Dict:
+    def analyze_batch(self, headlines: List[Union[str, Dict]],
+                      batch_size: int = 16) -> Dict:
         """
         Analyzes sentiment for multiple headlines in an efficient manner.
         :param headlines: Headlines to be analyzed
@@ -240,6 +240,7 @@ class SentimentAnalyzer:
         if not self._is_loaded:
             self.load_model()
 
+
         texts = []
         for headline in headlines:
             if isinstance(headline, str):
@@ -247,33 +248,35 @@ class SentimentAnalyzer:
             elif isinstance(headline, dict) and 'title' in headline:
                 texts.append(headline['title'])
             else:
-                logger.warning(f"Skipping the headline: {headline}")
+                logger.warning(f"Skipping invalid headline: {headline}")
                 texts.append("")
 
-        results=[]
-        processed = 0
+        results = []
+        total_processed = 0
+
 
         for i in range(0, len(texts), batch_size):
-            batch_texts = texts[i:1 + batch_size]
+            batch_texts = texts[i:i + batch_size]
 
-            logger.info(f"Processing batch {i//batch_size + 1}/{(len(texts)-1)//batch_size + 1}")
+            logger.info(
+                f"Processing batch {i // batch_size + 1}/{(len(texts) - 1) // batch_size + 1}")
 
             for text in batch_texts:
                 result = self.analyze_single(text)
                 results.append(result)
-                processed += 1
+                total_processed += 1
 
         sentiment_scores = [r.sentiment_score for r in results]
         sentiment_labels = [r.sentiment_label for r in results]
 
-        bullish_count = sentiment_labels.count("BULLISH")
-        bearish_count = sentiment_labels.count("BEARISH")
-        neutral_count = sentiment_labels.count("NEUTRAL")
+        bullish_count = sentiment_labels.count('BULLISH')
+        bearish_count = sentiment_labels.count('BEARISH')
+        neutral_count = sentiment_labels.count('NEUTRAL')
 
-        avg_sentiment = sum(sentiment_scores) / len(sentiment_scores) if (
-            sentiment_scores) else 0
-        avg_confidence = sum(r.confidence for r in results) / len(results) \
-            if results else 0
+        avg_sentiment = sum(sentiment_scores) / len(
+            sentiment_scores) if sentiment_scores else 0
+        avg_confidence = sum(r.confidence for r in results) / len(
+            results) if results else 0
 
         batch_results = {
             'results': results,
