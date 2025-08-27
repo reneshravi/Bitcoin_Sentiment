@@ -88,3 +88,27 @@ class SentimentAnalyzer:
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             raise RuntimeError(f"Could not load funBERT model: {e}")
+
+    def _preprocess_text(self, text: str) -> str:
+        """
+        Prepares the text for finBERT by stripping whitespace and cleaning
+        it up.
+        :param text: The text to be preprocessed to be then analyzed by
+        finBERT.
+        :return: Text that has been processed and ready to be passed to
+        finBERT.
+        """
+        if not text or not isinstance(text, str):
+            return ""
+
+        text = text.strip()
+        text = text.replace('\n', ' ').replace('\r', ' ')
+        text = ' '.join(text.split())
+
+        if len(text) > 512:
+            text = text[:512]
+            logger.debug("The text has been truncated to 512 characters due "
+                         "to the maximum length of finBERT.")
+
+        return text
+
