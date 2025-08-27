@@ -64,3 +64,27 @@ class SentimentAnalyzer:
                 device = "cpu"
                 logger.info("CPU will be used for computing.")
         return device
+
+    def load_model(self):
+        """
+        Loads the finBERT model.
+        """
+        if self._is_loaded:
+            logger.info("Model is already loaded.")
+            return
+
+        logger.info(f"Loading finBERT model: {self.model_name}")
+
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            logger.info("Tokenizer loaded successfully")
+            self.model = AutoModelForSequenceClassification(self.model_name)
+            self.model.to(self.device)
+            self.model.eval()
+
+            logger.info(f"finBERT model loaded successfully on {self.device}")
+            self._is_loaded = True
+
+        except Exception as e:
+            logger.error(f"Failed to load model: {e}")
+            raise RuntimeError(f"Could not load funBERT model: {e}")
