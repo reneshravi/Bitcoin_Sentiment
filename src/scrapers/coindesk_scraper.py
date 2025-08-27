@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
 
-from base_scraper import BaseScraper
+from .base_scraper import BaseScraper
 
 logger = logging.getLogger(__name__)
 
