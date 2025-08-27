@@ -205,3 +205,76 @@ class SentimentAnalyzer:
 
         return (positive_prob * 1.0) + (neutral_prob * 0.0) + (
             negative_prob * -1.0)
+
+    def analyze_batch(self, headlines: List[Union[str, Dict]], batch_size:
+        int = 16) -> Dict:
+        """
+        Analyzes sentiment for multiple headlines in an efficient manner.
+        :param headlines: Headlines to be analyzed
+        :param batch_size: Maximum number of headlines to analyzer per call.
+        :return: Dictionary containing the summary results.
+        """
+        if not self._is_loaded:
+            self.load_model()
+
+        texts = []
+        for headline in headlines:
+            if isinstance(headline, str):
+                texts.append(headline)
+            elif isinstance(headline, dict) and 'title' in headline:
+                texts.append(headline['title'])
+            else:
+                logger.warning(f"Skipping the headline: {headline}")
+                texts.append("")
+
+        results=[]
+        processed = 0
+
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i:1 + batch_size]
+
+            logger.info(f"Processing batch {i//batch_size + 1}/{(len(texts)-1)//batch_size + 1}")
+
+            for text in batch_texts:
+                result = self.analyze_single_headline(text)
+                results.append(result)
+                processed += 1
+
+        sentiment_scores = [r.sentiment_score for r in results]
+        sentiment_labels = [r.sentiment_label for r in results]
+
+        bullish_count = sentiment_labels.count("BULLISH")
+        bearish_count = sentiment_labels.count("BEARISH")
+        neutral_count = sentiment_labels.count("NEUTRAL")
+
+        avg_sentiment = sum(sentiment_scores) / len(sentiment_scores) if (
+            sentiment_scores) else 0
+        avg_confidence = sum(r.confidence for r in results) / len(results) \
+            if results else 0
+
+        batch_results = {
+            'results': results,
+            'summary': {
+                'total_headlines': len(headlines),
+                'processed_successfully': len(results),
+                'avg_sentiment_score': avg_sentiment,
+                'avg_confidence': avg_confidence,
+                'bullish_count': bullish_count,
+                'bearish_count': bearish_count,
+                'neutral_count': neutral_count,
+                'bullish_percentage': (bullish_count / len(
+                    results)) * 100 if results else 0,
+                'bearish_percentage': (bearish_count / len(
+                    results)) * 100 if results else 0,
+                'neutral_percentage': (neutral_count / len(
+                    results)) * 100 if results else 0
+            },
+            'analysis_date': datetime.now()
+        }
+
+        logger.info(f"Batch analysis complete!")
+        logger.info(
+            f"Results: {bullish_count} bullish, {bearish_count} bearish, {neutral_count} neutral")
+        logger.info(f"Average sentiment: {avg_sentiment:.3f}")
+
+        return batch_results
