@@ -50,4 +50,17 @@ class SentimentAnalyzer:
         logger.info(f"Device: {self.device}")
 
 
-
+    def _determine_device(self, device: str) -> str :
+        """
+        Determines whether to use the CPU or GPU component for computation
+        :param device:
+        :return: The component that will be used for computation.
+        """
+        if device == "auto":
+            if torch.cuda.is_available():
+                device = "cuda"
+                logger.info("GPU will be used for fast processing.")
+            else:
+                device = "cpu"
+                logger.info("CPU will be used for computing.")
+        return device
