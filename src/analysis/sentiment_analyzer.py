@@ -135,6 +135,50 @@ class SentimentAnalyzer:
             )
 
         try:
+            inputs = self.tokenizer(
+                clean_text,
+                return_tensors="pt",
+                truncation=True,
+                padding=True,
+                max_length=512
+            )
+
+            inputs = {key: value.to(self.device) for key, value in
+                      inputs.item()}
+
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                logits = outputs.logits
+                probabilities = softmax(logits, dim=-1)
+
+            predicted_class_id = probabilities.argmax().item()
+            confidence = probabilities.max().item()
+            raw_label = self.model.config.id2label[predicted_class_id]
+            sentiment_label = self.label_mapping.get(raw_label, raw_label)
+            bitcoin_label = self.bitcoin_label_mapping.get(sentiment_label,
+                                                           sentiment_label)
+
+            sentiment_score = self._calculate_sentiment_score(probabilities)
+
+            probs_dict={}
+            for i, prob in enumerate(probabilities[0]):
+                raw_label = self.model.config.id2label[i]
+                sentiment_type = self.label_mapping.get(raw_label, raw_label)
+                bitcoin_type = self.bitcoin_label_mapping.get(
+                    sentiment_type, sentiment_type)
+                probs_dict[bitcoin_type] = prob.item()
+
+            result = SentimentResult(
+                text=text,
+                sentiment_score=sentiment_score,
+                sentiment_label=bitcoin_label,
+                confidence=confidence,
+                probabilities=probs_dict
+            )
+
+            logger.debug(f"Analyzed '{text[:50]}...' -> {bitcoin_label} ("
+                         f"{sentiment_score:.3f})")
+            return result
 
         except Exception as e:
             logger.error(f"Error anallyzing the text '{text[:50]}...': {e}")
@@ -146,3 +190,18 @@ class SentimentAnalyzer:
                 probabilities={"BEARISH": 0.33, "NEUTRAL": 0.34, "BULLISH":
                     0.33}
             )
+
+    def _calculate_sentiment_score(self, probabilities: torch.Tensor) -> (
+            float):
+        """
+        Converts the probability distribution into a single sentiment score
+        ranging from -1.0 to 1.0.
+        :param probabilities: Probabilities from finBERT analysis.
+        :return: Sentiment score ranging from -1.0 to 1.0.
+        """
+        negative_prob = probabilities[0][0].item()
+        neutral_prob = probabilities[0][1].item()
+        positive_prob = probabilities[0][2].item()
+
+        return (positive_prob * 1.0) + (neutral_prob * 0.0) + (
+            negative_prob * -1.0)
