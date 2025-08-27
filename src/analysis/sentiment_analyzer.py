@@ -112,3 +112,37 @@ class SentimentAnalyzer:
 
         return text
 
+    def analyze_single_headline(self, text: str) -> SentimentResult:
+        """
+        Analyzes the sentiment for a single headline.
+        :param text: The headline to be used for sentiment analysis.
+        :return: SentimentResult object containing the sentiment score for
+        the headline.
+        """
+        if not self._is_loaded:
+            self.load_model()
+
+        clean_text = self._preprocess_text(text)
+
+        if not clean_text:
+            return SentimentResult(
+                text=text,
+                sentiment_score=0.0,
+                sentiment_label="NEUTRAL",
+                confidence=0.0,
+                probabilities={"BEARISH": 0.33, "NEUTRAL": 0.34, "BULLISH":
+                    0.33}
+            )
+
+        try:
+
+        except Exception as e:
+            logger.error(f"Error anallyzing the text '{text[:50]}...': {e}")
+            return SentimentResult(
+                text=text,
+                sentiment_score=0.0,
+                sentiment_label="NEUTRAL",
+                confidence=0.0,
+                probabilities={"BEARISH": 0.33, "NEUTRAL": 0.34, "BULLISH":
+                    0.33}
+            )
