@@ -27,6 +27,12 @@ class SentimentAnalyzer:
 
     def __init__(self, model_name: str = "ProsusAI/finbert", device: str =
     "auto"):
+        """
+        Initialize the sentiment analyzer with finBERT model.
+        :param model_name: Which finBERT model to use (default is the main
+        one).
+        :param device: "auto", "cpu", or "cuda" (GPU) - auto picks the best available.
+        """
         self.model_name = model_name
         self.device = self._determine_device(device)
 
@@ -34,16 +40,17 @@ class SentimentAnalyzer:
         self.model = None
         self._is_loaded = False
 
-        self.label_mapping = {
-            'LABEL_0': 'NEGATIVE',
-            'LABEL_1': 'NEUTRAL',
-            'LABEL_2': 'POSITIVE'
+
+        self.finbert_labels = {
+            0: 'positive',
+            1: 'negative',
+            2: 'neutral'
         }
 
         self.bitcoin_label_mapping = {
-            'NEGATIVE': 'BEARISH',
-            'NEUTRAL': 'NEUTRAL',
-            'POSITIVE': 'BULLISH'
+            'positive': 'BULLISH',
+            'negative': 'BEARISH',
+            'neutral': 'NEUTRAL'
         }
 
         logger.info(f"SentimentAnalyzer initialized with model: {model_name}")
@@ -78,7 +85,7 @@ class SentimentAnalyzer:
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
             logger.info("Tokenizer loaded successfully")
-            self.model = AutoModelForSequenceClassification(self.model_name)
+            self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
             self.model.to(self.device)
             self.model.eval()
 
@@ -112,7 +119,7 @@ class SentimentAnalyzer:
 
         return text
 
-    def analyze_single_headline(self, text: str) -> SentimentResult:
+    def analyze_single(self, text: str) -> SentimentResult:
         """
         Analyzes the sentiment for a single headline.
         :param text: The headline to be used for sentiment analysis.
@@ -199,12 +206,14 @@ class SentimentAnalyzer:
         :param probabilities: Probabilities from finBERT analysis.
         :return: Sentiment score ranging from -1.0 to 1.0.
         """
-        negative_prob = probabilities[0][0].item()
-        neutral_prob = probabilities[0][1].item()
-        positive_prob = probabilities[0][2].item()
+        pos_prob = probabilities[0][0].item()  # positive
+        neg_prob = probabilities[0][1].item()  # negative
+        neu_prob = probabilities[0][2].item()  # neutral
 
-        return (positive_prob * 1.0) + (neutral_prob * 0.0) + (
-            negative_prob * -1.0)
+        sentiment_score = (pos_prob * 1.0) + (neu_prob * 0.0) + (
+                    neg_prob * -1.0)
+
+        return sentiment_score
 
     def analyze_batch(self, headlines: List[Union[str, Dict]], batch_size:
         int = 16) -> Dict:
@@ -236,7 +245,7 @@ class SentimentAnalyzer:
             logger.info(f"Processing batch {i//batch_size + 1}/{(len(texts)-1)//batch_size + 1}")
 
             for text in batch_texts:
-                result = self.analyze_single_headline(text)
+                result = self.analyze_single(text)
                 results.append(result)
                 processed += 1
 
