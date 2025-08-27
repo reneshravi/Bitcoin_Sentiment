@@ -137,8 +137,8 @@ class SentimentAnalyzer:
                 sentiment_score=0.0,
                 sentiment_label="NEUTRAL",
                 confidence=0.0,
-                probabilities={"BEARISH": 0.33, "NEUTRAL": 0.34, "BULLISH":
-                    0.33}
+                probabilities={"BEARISH": 0.33, "NEUTRAL": 0.34,
+                               "BULLISH": 0.33}
             )
 
         try:
@@ -151,7 +151,7 @@ class SentimentAnalyzer:
             )
 
             inputs = {key: value.to(self.device) for key, value in
-                      inputs.item()}
+                      inputs.items()}
 
             with torch.no_grad():
                 outputs = self.model(**inputs)
@@ -160,20 +160,16 @@ class SentimentAnalyzer:
 
             predicted_class_id = probabilities.argmax().item()
             confidence = probabilities.max().item()
-            raw_label = self.model.config.id2label[predicted_class_id]
-            sentiment_label = self.label_mapping.get(raw_label, raw_label)
-            bitcoin_label = self.bitcoin_label_mapping.get(sentiment_label,
-                                                           sentiment_label)
 
-            sentiment_score = self._calculate_sentiment_score(probabilities)
+            raw_label = self.finbert_labels[
+                predicted_class_id]
+            bitcoin_label = self.bitcoin_label_mapping[raw_label]
 
-            probs_dict={}
-            for i, prob in enumerate(probabilities[0]):
-                raw_label = self.model.config.id2label[i]
-                sentiment_type = self.label_mapping.get(raw_label, raw_label)
-                bitcoin_type = self.bitcoin_label_mapping.get(
-                    sentiment_type, sentiment_type)
-                probs_dict[bitcoin_type] = prob.item()
+            sentiment_score = self._calculate_sentiment_score(
+                probabilities)
+
+
+            probs_dict = self._extract_probabilities(probabilities)
 
             result = SentimentResult(
                 text=text,
@@ -183,37 +179,55 @@ class SentimentAnalyzer:
                 probabilities=probs_dict
             )
 
-            logger.debug(f"Analyzed '{text[:50]}...' -> {bitcoin_label} ("
-                         f"{sentiment_score:.3f})")
+            logger.debug(
+                f"Analyzed: '{text[:50]}...' → {bitcoin_label} ({sentiment_score:.3f})")
             return result
 
         except Exception as e:
-            logger.error(f"Error anallyzing the text '{text[:50]}...': {e}")
+            logger.error(f"Error analyzing text '{text[:50]}...': {e}")
             return SentimentResult(
                 text=text,
                 sentiment_score=0.0,
                 sentiment_label="NEUTRAL",
                 confidence=0.0,
-                probabilities={"BEARISH": 0.33, "NEUTRAL": 0.34, "BULLISH":
-                    0.33}
+                probabilities={"BEARISH": 0.33, "NEUTRAL": 0.34,
+                               "BULLISH": 0.33}
             )
 
-    def _calculate_sentiment_score(self, probabilities: torch.Tensor) -> (
-            float):
+    def _calculate_sentiment_score(self,
+                                             probabilities: torch.Tensor) -> float:
         """
-        Converts the probability distribution into a single sentiment score
-        ranging from -1.0 to 1.0.
+        Calculates a sentiment score based off of the provided probability
+        distribution.
         :param probabilities: Probabilities from finBERT analysis.
         :return: Sentiment score ranging from -1.0 to 1.0.
         """
-        pos_prob = probabilities[0][0].item()  # positive
-        neg_prob = probabilities[0][1].item()  # negative
-        neu_prob = probabilities[0][2].item()  # neutral
+        pos_prob = probabilities[0][0].item()
+        neg_prob = probabilities[0][1].item()
+        neu_prob = probabilities[0][2].item()
 
         sentiment_score = (pos_prob * 1.0) + (neu_prob * 0.0) + (
                     neg_prob * -1.0)
 
         return sentiment_score
+
+    def _extract_probabilities(self, probabilities: torch.Tensor) -> \
+    Dict[str, float]:
+        """
+        Extract class probabilities into a readable mapping.
+        :param probabilities: Probabilities from finBERT analysis.
+        :return: Dictionary mapped with the keys 'BULLISH', 'BEARISH', 'NEUTRAL',
+        and their respective probabilities
+        """
+        pos_prob = probabilities[0][0].item()
+        neg_prob = probabilities[0][1].item()
+        neu_prob = probabilities[0][2].item()
+
+        return {
+            'BULLISH': pos_prob,
+            'BEARISH': neg_prob,
+            'NEUTRAL': neu_prob
+        }
 
     def analyze_batch(self, headlines: List[Union[str, Dict]], batch_size:
         int = 16) -> Dict:
