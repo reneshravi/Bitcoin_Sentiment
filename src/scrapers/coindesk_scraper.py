@@ -64,7 +64,6 @@ class CoindeskScraper(BaseScraper):
                               max_pages_per_source: int = 3) -> List[Dict]:
         """
         Scrapes Bitcoin headlines from multiple CoinDesk sections.
-        :param limit: Maximum number of headlines to return after filtering and sorting. Defaults to 50.
         :param days_back: Only include articles published within the last
         'days_back' days. Defaults to 7.
         :param max_pages_per_source: Maximum paginated pages to fetch per
@@ -445,10 +444,9 @@ class CoindeskScraper(BaseScraper):
         return headlines
 
 
-def test_coindesk_scraper_custom(limit=50, days_back=14, max_pages=5):
+def test_coindesk_scraper_custom(days_back=14, max_pages=5):
     """
     Manual smoke test for CoinDesk scraper with pagination.
-    :param limit: Number if final headlines to display.
     :param days_back: How many days back to include.
     :param max_pages: Maximum pages per source to crawl.
     """
@@ -457,7 +455,7 @@ def test_coindesk_scraper_custom(limit=50, days_back=14, max_pages=5):
 
     print(f"TESTING COINDESK SCRAPER WITH PAGINATION")
     print(
-        f" Getting {limit} headlines from last {days_back} days ({max_pages} pages per source)")
+        f" Getting headlines from last {days_back} days ({max_pages} pages per source)")
     print("=" * 70)
 
     scraper = CoindeskScraper()
