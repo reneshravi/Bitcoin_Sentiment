@@ -110,14 +110,69 @@ class BaseScraper(ABC):
         :param text: The text string (e.g., headline or article snippet) to check for Bitcoin-related content.
         :return: True if the text contains any Bitcoin or crypto-related keywords, otherwise False.
         """
-        bitcoin_keywords = {
-            'bitcoin', 'btc', 'blockchain', 'cryptocurrency', 'crypto',
-            'hodl', 'mining', 'halving', 'whale', 'pump', 'dump', 'moon',
-            'bearish', 'bullish', 'bear', ' bull'
-        }
+        if not text:
+            return False
 
         text_lower = text.lower()
-        return any(keyword in text_lower for keyword in bitcoin_keywords)
+
+        bitcoin_direct = ['bitcoin', 'btc', 'satoshi', 'sats']
+        if any(term in text_lower for term in bitcoin_direct):
+            return True
+
+        crypto_entities = [
+            'coinbase', 'binance', 'kraken', 'microstrategy', 'grayscale',
+            'blackrock', 'fidelity', 'tesla', 'square', 'paypal',
+            'el salvador', 'bukele', 'saylor'
+        ]
+        if any(entity in text_lower for entity in crypto_entities):
+            return True
+
+        crypto_general = ['cryptocurrency', 'crypto', 'digital currency', 'digital asset', 'blockchain']
+        financial_context = ['price', 'trading', 'investment', 'fund', 'etf', 'exchange', 'market', 'value']
+
+        has_crypto = any(term in text_lower for term in crypto_general)
+        has_financial = any(term in text_lower for term in financial_context)
+
+        if has_crypto and has_financial:
+            return True
+
+        bitcoin_tech = [
+            'lightning network', 'taproot', 'segwit', 'hash rate',
+            'halving', 'proof of work', 'block reward', 'difficulty adjustment',
+            'utxo', 'multisig', 'cold storage', 'hardware wallet'
+        ]
+        if any(term in text_lower for term in bitcoin_tech):
+            return True
+
+        mining_terms = ['mining', 'miners', 'hash rate', 'difficulty']
+        mining_context = ['energy', 'power', 'electricity', 'carbon', 'renewable', 'efficiency']
+
+        has_mining = any(term in text_lower for term in mining_terms)
+        has_mining_context = any(term in text_lower for term in mining_context)
+
+        if has_mining and (has_mining_context or has_financial):
+            return True
+
+        regulatory_terms = ['sec', 'cftc', 'regulation', 'ban', 'legal', 'compliance', 'approve', 'reject']
+        if has_crypto and any(term in text_lower for term in regulatory_terms):
+            return True
+
+        defi_terms = ['defi', 'decentralized finance', 'web3', 'dapp', 'smart contract']
+        if any(term in text_lower for term in defi_terms):
+            return True
+
+        crypto_products = [
+            'bitcoin etf', 'crypto etf', 'digital asset fund', 'cryptocurrency fund',
+            'bitcoin futures', 'crypto derivatives', 'bitcoin options'
+        ]
+        if any(product in text_lower for product in crypto_products):
+            return True
+
+        market_terms = ['hodl', 'whale', 'pump', 'dump', 'moon', 'diamond hands', 'paper hands']
+        if any(term in text_lower for term in market_terms):
+            return True
+
+        return False
 
     def _extract_publish_date(self, article_element) -> Optional[datetime]:
         """
