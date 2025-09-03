@@ -27,16 +27,40 @@ class CoindeskScraper(BaseScraper):
             base_url="https://www.coindesk.com",
             source_name="CoinDesk"
         )
-        self.potential_urls = [
-            f"{self.base_url}/tag/bitcoin/",        # Bitcoin-specific tag page
-            f"{self.base_url}/",                    # Homepage
-            f"{self.base_url}/markets/",            # Markets
-            f"{self.base_url}/tag/cryptocurrency/", # Broader crypto news
-            f"{self.base_url}/policy/",             # Policy news
-            f"{self.base_url}/tech/",               # Tech news
+        self.source_configs = [
+            {
+                'url': f"{self.base_url}/tag/bitcoin/",
+                'supports_pagination': True,
+                'description': 'Bitcoin Tag Page'
+            },
+            {
+                'url': f"{self.base_url}/tag/cryptocurrency/",
+                'supports_pagination': True,
+                'description': 'Cryptocurrency Tag Page'
+            },
+            {
+                'url': f"{self.base_url}/",
+                'supports_pagination': False,  # Homepage page 2 = 404
+                'description': 'Homepage'
+            },
+            {
+                'url': f"{self.base_url}/markets/",
+                'supports_pagination': False,  # Markets page 2 = 404
+                'description': 'Markets Section'
+            },
+            {
+                'url': f"{self.base_url}/policy/",
+                'supports_pagination': False,  # Single page
+                'description': 'Policy Section'
+            },
+            {
+                'url': f"{self.base_url}/tech/",
+                'supports_pagination': False,  # Single page
+                'description': 'Tech Section'
+            }
         ]
 
-    def get_bitcoin_headlines(self, limit: int = 50, days_back: int = 7,
+    def get_bitcoin_headlines(self, days_back: int = 7,
                               max_pages_per_source: int = 3) -> List[Dict]:
         """
         Scrapes Bitcoin headlines from multiple CoinDesk sections.
@@ -47,72 +71,66 @@ class CoindeskScraper(BaseScraper):
         section URL. Defaults to 3.
         :return:
         """
-        logger.info(
-            f"Scraping Bitcoin headlines from {self.source_name} (limit={limit}, max_pages={max_pages_per_source})")
-        all_headlines = []
+        logger.info(f"Scraping Bitcoin headlines from {self.source_name}")
+        headlines = []
+
+        for config in self.source_configs:
+            base_url = config['url']
+            supports_pagination = config['supports_pagination']
+            description = config['description']
+
+            logger.info(f"Processing {description}: {base_url}")
+
+            if supports_pagination:
+                logger.info(f"  Using pagination: up to {max_pages_per_source} pages")
+
+                for page_num in range(1, max_pages_per_source + 1):
+                    page_url = self._build_paginated_url(base_url, page_num)
+                    logger.info(f"    Trying page {page_num}: {page_url}")
+
+                    try:
+                        response = self._make_request(page_url)
+                        if not response:
+                            logger.info(f"      Page {page_num}: No response - stopping pagination")
+                            break
+
+                        soup = self._parse_html(response.content)
+                        page_headlines = self._parse_article_list(soup)
+
+                        if page_headlines:
+                            logger.info(f"      Page {page_num}: Found {len(page_headlines)} headlines")
+                            headlines.extend(page_headlines)
+                        else:
+                            logger.info(f"      Page {page_num}: No headlines - end of pages")
+                            break
+
+                    except Exception as e:
+                        logger.error(f"      Page {page_num}: Error - {e}")
+                        break
 
 
-        for base_url in self.potential_urls:
-            logger.info(f"Processing source: {base_url}")
-
-            for page_num in range(1, max_pages_per_source + 1):
-                page_url = self._build_paginated_url(base_url, page_num)
-                logger.info(f"  Trying page {page_num}: {page_url}")
-
+            else:
+                # Single page for sources that don't support pagination
+                logger.info(f"  Single page source")
                 try:
-                    response = self._make_request(page_url)
-                    if not response:
-                        logger.info(f"    Page {page_num}: No response")
-                        break
-
-                    soup = self._parse_html(response.content)
-                    page_headlines = self._parse_article_list(soup)
-
-                    if page_headlines:
-                        logger.info(
-                            f"    Page {page_num}: Found"
-                            f" {len(page_headlines)} headlines")
-                        all_headlines.extend(page_headlines)
-                    else:
-                        logger.info(
-                            f"    Page {page_num}: No headlines found - end of pages")
-                        break
-
+                    response = self._make_request(base_url)
+                    if response:
+                        soup = self._parse_html(response.content)
+                        page_headlines = self._parse_article_list(soup)
+                        if page_headlines:
+                            logger.info(f"    Found {len(page_headlines)} headlines")
+                            headlines.extend(page_headlines)
                 except Exception as e:
-                    logger.error(f"    Page {page_num}: Error - {e}")
-                    break
+                    logger.error(f"    Error: {e}")
 
-                # Early exit
-                if len(all_headlines) >= limit * 2:
-                    logger.info(
-                        f"    Collected enough raw headlines "
-                        f"({len(all_headlines)}), moving to next source")
-                    break
-
-        if not all_headlines:
-            logger.warning("No headlines found from any URL/page")
+        if not headlines:
+            logger.warning("No headlines found from any URL")
             return []
-
-        logger.info(f"  Total raw headlines collected: {len(all_headlines)}")
-
-
-        seen_urls = set()
-        unique_headlines = []
-
-        for headline in all_headlines:
-            url = headline.get('url', '')
-            if url and url not in seen_urls:
-                seen_urls.add(url)
-                unique_headlines.append(headline)
-
-        logger.info(
-            f"After deduplication: {len(unique_headlines)} unique headlines")
-
 
         cutoff_date = datetime.now() - timedelta(days=days_back)
         bitcoin_headlines = []
 
-        for headline in unique_headlines:
+        for headline in headlines:
             try:
                 title_text = headline.get('title', '')
                 summary_text = headline.get('summary', '')
@@ -127,20 +145,12 @@ class CoindeskScraper(BaseScraper):
                 continue
 
         try:
-            bitcoin_headlines.sort(
-                key=lambda x: x.get('published_at', datetime.min),
-                reverse=True)
+            bitcoin_headlines.sort(key=lambda x: x.get('published_at', datetime.min), reverse=True)
         except Exception as e:
             logger.debug(f"Error sorting headlines: {e}")
 
-        final_headlines = bitcoin_headlines[:limit]
-        logger.info(
-            f"  Final result: {len(final_headlines)} Bitcoin headlines ("
-            f"requested: {limit})")
-        logger.info(
-            f"  Sources crawled: {len(self.potential_urls)} URLs ×"
-            f" {max_pages_per_source} pages each")
-
+        final_headlines = bitcoin_headlines
+        logger.info(f"Successfully filtered to {len(final_headlines)} Bitcoin headlines")
         return final_headlines
 
     def _build_paginated_url(self, base_url: str, page_num: int) -> str:
@@ -451,7 +461,7 @@ def test_coindesk_scraper_custom(limit=50, days_back=14, max_pages=5):
     print("=" * 70)
 
     scraper = CoindeskScraper()
-    headlines = scraper.get_bitcoin_headlines(limit=limit, days_back=days_back,
+    headlines = scraper.get_bitcoin_headlines(days_back=days_back,
                                               max_pages_per_source=max_pages)
 
     print(f"\n RESULTS: Scraped {len(headlines)} headlines")
@@ -498,7 +508,7 @@ def test_coindesk_scraper_custom(limit=50, days_back=14, max_pages=5):
         print(f"   • With full timestamps: {times_with_hours}")
         print(f"   • With date only: {len(headlines) - times_with_hours}")
         print(
-            f"   • Sources × Pages: {len(scraper.potential_urls)} × {max_pages} = {len(scraper.potential_urls) * max_pages} total pages crawled")
+            f"   • Sources configured: {len(scraper.source_configs)}")
         print(f"\n Headlines by date:")
         for date, count in sorted(date_counts.items(), reverse=True):
             print(f"   • {date}: {count} headlines")
@@ -508,4 +518,4 @@ def test_coindesk_scraper_custom(limit=50, days_back=14, max_pages=5):
         print("No headlines found")
 
 if __name__ == "__main__":
-    test_coindesk_scraper_custom(limit=100, days_back=20, max_pages=5)  #
+    test_coindesk_scraper_custom(days_back=20, max_pages=5)  #

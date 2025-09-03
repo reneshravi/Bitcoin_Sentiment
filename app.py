@@ -60,7 +60,6 @@ def run_sentiment_analysis():
 
         logger.info("Scraping headlines...")
         headlines = scraper.get_bitcoin_headlines(
-            limit=num_headlines,
             days_back=days_back,
             max_pages_per_source=max_pages
         )
