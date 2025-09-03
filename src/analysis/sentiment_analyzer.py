@@ -304,3 +304,71 @@ class SentimentAnalyzer:
         logger.info(f"Average sentiment: {avg_sentiment:.3f}")
 
         return batch_results
+
+
+def test_sentiment_analyzer():
+    """
+    Test function to demonstrate the sentiment analyzer
+    """
+
+    print("TESTING CORRECTED FINBERT SENTIMENT ANALYZER")
+    print("=" * 60)
+
+    print("Initializing finBERT sentiment analyzer...")
+    analyzer = SentimentAnalyzer()
+
+    test_headlines = [
+        "Bitcoin surges to new all-time high of $100,000",
+        "Major cryptocurrency exchange hacked, Bitcoin plummets",
+        "Bitcoin price remains stable around $60,000",
+        "Coinbase CEO predicts Bitcoin could reach $1 million by 2030",
+        "Harvard professor warns Bitcoin could crash to $100",
+        "El Salvador adopts Bitcoin as legal tender",
+        "China bans Bitcoin mining operations",
+        "Bitcoin transaction fees increase significantly",
+    ]
+
+    print(f"Testing with {len(test_headlines)} sample headlines...")
+    print()
+
+    print("Single headline analysis:")
+    result = analyzer.analyze_single(test_headlines[0])
+
+    print(f"   Text: {result.text}")
+    print(f"   Sentiment: {result.sentiment_label}")
+    print(f"   Score: {result.sentiment_score:.3f}")
+    print(f"   Confidence: {result.confidence:.3f}")
+    print(f"   Probabilities: {result.probabilities}")
+    print()
+
+    print("Batch analysis:")
+    batch_results = analyzer.analyze_batch(test_headlines)
+
+    print(f"SUMMARY:")
+    summary = batch_results['summary']
+    print(f"   • Total headlines: {summary['total_headlines']}")
+    print(f"   • Average sentiment: {summary['avg_sentiment_score']:.3f}")
+    print(
+        f"   • Bullish: {summary['bullish_count']} ({summary['bullish_percentage']:.1f}%)")
+    print(
+        f"   • Bearish: {summary['bearish_count']} ({summary['bearish_percentage']:.1f}%)")
+    print(
+        f"   • Neutral: {summary['neutral_count']} ({summary['neutral_percentage']:.1f}%)")
+    print()
+
+    # Show individual results
+    print("INDIVIDUAL RESULTS:")
+    for i, result in enumerate(batch_results['results'], 1):
+        sentiment_icon = {"BULLISH": "↗", "BEARISH": "↘", "NEUTRAL": "→"}
+        icon = sentiment_icon.get(result.sentiment_label, "?")
+
+        print(
+            f"{i:2d}. {icon} {result.sentiment_label} ({result.sentiment_score:+.2f})")
+        print(f"    {result.text[:70]}...")
+        print()
+
+    print("Test complete. finBERT is working")
+
+
+if __name__ == "__main__":
+    test_sentiment_analyzer()
