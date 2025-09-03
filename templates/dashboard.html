@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Sentiment Dashboard</title>
+    
+    <!-- Include Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Include Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Include Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #111827;
+            min-height: 100vh;
+            color: #f9fafb;
+            line-height: 1.6;
+        }
+
+        .header {
+            background-color: #1f2937;
+            border-bottom: 1px solid #374151;
+            color: white;
+            padding: 2rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: #f9fafb;
+        }
+
+        .header-left p {
+            font-size: 1.1rem;
+            color: #d1d5db;
+            font-weight: 300;
+        }
+
+        .github-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background-color: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 25px;
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .github-link:hover {
+            background-color: #4b5563;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .controls {
+            background-color: #1f2937;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            margin-bottom: 2rem;
+            border: 1px solid #374151;
+        }
+
+        .controls h2 {
+            margin-bottom: 1.5rem;
+            color: #f9fafb;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .control-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            align-items: end;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #d1d5db;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-group input {
+            padding: 1rem;
+            border: 2px solid #374151;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background-color: #111827;
+            color: #f9fafb;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            background-color: #1f2937;
+        }
+
+        .analyze-btn {
+            background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-self: start;
+            white-space: nowrap;
+        }
+
+        .analyze-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .analyze-btn:disabled {
+            background-color: #6b7280;
+            background-image: none;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 3rem 0;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(99, 102, 241, 0.2);
+            border-top: 4px solid #6366f1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        .loading-text {
+            font-size: 1.1rem;
+            color: #f9fafb;
+            margin-bottom: 0.5rem;
+        }
+
+        .loading-subtext {
+            color: #d1d5db;
+            font-size: 0.9rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background-color: #1f2937;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            border: 1px solid #374151;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #6366f1, #0ea5e9);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #d1d5db;
+        }
+
+        .card h3 {
+            color: #9ca3af;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .card .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: #f9fafb;
+        }
+
+        .card .percentage {
+            font-size: 0.9rem;
+            color: #9ca3af;
+        }
+
+        .card.bullish .value { color: #10b981; }
+        .card.bearish .value { color: #ef4444; }
+        .card.neutral .value { color: #f59e0b; }
+        .card.sentiment .value { color: #6366f1; }
+
+        .charts {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-container {
+            background-color: #1f2937;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            border: 1px solid #374151;
+        }
+
+        .chart-container h3 {
+            margin-bottom: 1.5rem;
+            color: #f9fafb;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .headlines {
+            background-color: #1f2937;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            border: 1px solid #374151;
+        }
+
+        .headlines h3 {
+            margin-bottom: 1.5rem;
+            color: #f9fafb;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .headline-item {
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            background-color: #111827;
+            border-left: 4px solid #374151;
+            transition: all 0.3s ease;
+        }
+
+        .headline-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            background-color: #1f2937;
+        }
+
+        .headline-item.bullish { 
+            border-left-color: #10b981;
+            background-color: rgba(16, 185, 129, 0.1);
+        }
+        .headline-item.bearish { 
+            border-left-color: #ef4444;
+            background-color: rgba(239, 68, 68, 0.1);
+        }
+        .headline-item.neutral { 
+            border-left-color: #f59e0b;
+            background-color: rgba(245, 158, 11, 0.1);
+        }
+
+        .headline-title {
+            font-weight: 600;
+            margin-bottom: 0.8rem;
+            color: #f9fafb;
+            line-height: 1.4;
+        }
+
+        .headline-meta {
+            font-size: 0.9rem;
+            color: #9ca3af;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .sentiment-badge {
+            padding: 0.4rem 1rem;
+            border-radius: 25px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sentiment-badge.bullish {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .sentiment-badge.bearish {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .sentiment-badge.neutral {
+            background-color: #f59e0b;
+            color: white;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: #9ca3af;
+            font-size: 0.9rem;
+            background-color: #1f2937;
+            border-top: 1px solid #374151;
+        }
+
+        .footer a {
+            color: #6366f1;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer a:hover {
+            color: #4338ca;
+            text-decoration: underline;
+        }
+
+        .tech-stack {
+            margin-top: 1rem;
+            padding: 1.5rem;
+            background-color: #1f2937;
+            border-radius: 15px;
+            border: 1px solid #374151;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .tech-stack h4 {
+            margin-bottom: 0.8rem;
+            font-weight: 600;
+            color: #f9fafb;
+            text-align: center;
+        }
+
+        .tech-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .tech-badge {
+            padding: 0.3rem 0.8rem;
+            background-color: #111827;
+            border: 1px solid #374151;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #d1d5db;
+        }
+
+        .analysis-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background-color: #111827;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: #9ca3af;
+            border: 1px solid #374151;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background-color: #374151;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #6366f1;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            .charts {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-group {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+                gap: 1rem;
+            }
+            
+            .header-left h1 {
+                font-size: 2rem;
+            }
+            
+            .summary-cards {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+
+        .chart-container canvas {
+            max-height: 300px;
+        }
+
+        .card, .chart-container, .headlines {
+            animation: slideUp 0.6s ease-out forwards;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .card:nth-child(1) { animation-delay: 0.1s; }
+        .card:nth-child(2) { animation-delay: 0.2s; }
+        .card:nth-child(3) { animation-delay: 0.3s; }
+        .card:nth-child(4) { animation-delay: 0.4s; }
+        .card:nth-child(5) { animation-delay: 0.5s; }
+
+        @keyframes slideUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .last-updated {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <h1>
+                    <i class="fas fa-chart-line"></i>
+                    Bitcoin Sentiment Dashboard
+                </h1>
+                <p>AI-powered sentiment analysis using finBERT transformer model</p>
+            </div>
+            <a href="https://github.com/reneshravi/Bitcoin_Sentiment" class="github-link" target="_blank">
+                <i class="fab fa-github"></i>
+                View on GitHub
+            </a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Analysis Controls -->
+        <div class="controls">
+            <h2>
+                <i class="fas fa-sliders-h"></i>
+                Analysis Configuration
+            </h2>
+            <div class="control-group">
+                <div class="input-group">
+                    <label for="numHeadlines">
+                        <i class="fas fa-newspaper"></i>
+                        Number of Headlines
+                    </label>
+                    <input type="number" id="numHeadlines" value="100" min="10" max="500">
+                </div>
+                <div class="input-group">
+                    <label for="daysBack">
+                        <i class="fas fa-calendar"></i>
+                        Days Back
+                    </label>
+                    <input type="number" id="daysBack" value="7" min="1" max="30">
+                </div>
+                <div class="input-group">
+                    <label for="maxPages">
+                        <i class="fas fa-layer-group"></i>
+                        Max Pages per Source
+                    </label>
+                    <input type="number" id="maxPages" value="3" min="1" max="10">
+                </div>
+                <button class="analyze-btn" onclick="runAnalysis()">
+                    <i class="fas fa-brain"></i>
+                    Analyze Sentiment
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div class="loading-text">Analyzing Bitcoin sentiment with finBERT AI...</div>
+            <div class="loading-subtext">This may take 1-2 minutes depending on the number of headlines</div>
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results" id="results">
+            <!-- Summary Cards -->
+            <div class="summary-cards">
+                <div class="card">
+                    <div class="status-indicator"></div>
+                    <div class="card-icon">
+                        <i class="fas fa-newspaper"></i>
+                    </div>
+                    <h3>Total Headlines</h3>
+                    <div class="value" id="totalHeadlines">0</div>
+                </div>
+                <div class="card bullish">
+                    <div class="card-icon">
+                        <i class="fas fa-arrow-trend-up"></i>
+                    </div>
+                    <h3>Bullish</h3>
+                    <div class="value" id="bullishCount">0</div>
+                    <div class="percentage" id="bullishPercent">0%</div>
+                </div>
+                <div class="card bearish">
+                    <div class="card-icon">
+                        <i class="fas fa-arrow-trend-down"></i>
+                    </div>
+                    <h3>Bearish</h3>
+                    <div class="value" id="bearishCount">0</div>
+                    <div class="percentage" id="bearishPercent">0%</div>
+                </div>
+                <div class="card neutral">
+                    <div class="card-icon">
+                        <i class="fas fa-minus"></i>
+                    </div>
+                    <h3>Neutral</h3>
+                    <div class="value" id="neutralCount">0</div>
+                    <div class="percentage" id="neutralPercent">0%</div>
+                </div>
+                <div class="card sentiment">
+                    <div class="card-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h3>Average Sentiment</h3>
+                    <div class="value" id="avgSentiment">0.000</div>
+                    <div class="percentage">(-1.0 to +1.0)</div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts">
+                <div class="chart-container">
+                    <h3>
+                        <i class="fas fa-chart-pie"></i>
+                        Sentiment Distribution
+                    </h3>
+                    <canvas id="sentimentPieChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>
+                        <i class="fas fa-chart-line"></i>
+                        Sentiment Over Time
+                    </h3>
+                    <canvas id="sentimentTrendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Headlines List -->
+            <div class="headlines">
+                <h3>
+                    <i class="fas fa-list"></i>
+                    Recent Headlines
+                </h3>
+                <div class="analysis-meta">
+                    <span>
+                        <i class="fas fa-clock"></i>
+                        Last updated: <span id="lastUpdated">Never</span>
+                    </span>
+                    <span>
+                        <i class="fas fa-server"></i>
+                        Source: CoinDesk
+                    </span>
+                </div>
+                <div id="headlinesList">
+                    <!-- Headlines will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // JavaScript for dashboard functionality
+        let sentimentPieChart = null;
+        let sentimentTrendChart = null;
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('results').style.display = 'block';
+            
+            // Update last updated time
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent = now.toLocaleString();
+        }
+
+        async function runAnalysis() {
+            const button = document.querySelector('.analyze-btn');
+            const originalText = button.innerHTML;
+            
+            // Disable button and show loading state
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+            
+            // Get input values
+            const numHeadlines = document.getElementById('numHeadlines').value;
+            const daysBack = document.getElementById('daysBack').value;
+            const maxPages = document.getElementById('maxPages').value;
+
+            // Show loading
+            showLoading();
+
+            try {
+                // Call Flask API
+                const response = await fetch('/api/sentiment-analysis', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        num_headlines: parseInt(numHeadlines),
+                        days_back: parseInt(daysBack),
+                        max_pages: parseInt(maxPages)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayResults(data);
+                } else {
+                    alert('Analysis failed: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                hideLoading();
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        }
+
+        function displayResults(data) {
+            const summary = data.summary;
+            const headlines = data.headlines;
+
+            // Update summary cards with animations
+            animateValue('totalHeadlines', 0, summary.total_headlines, 1000);
+            animateValue('bullishCount', 0, summary.bullish_count, 1000);
+            animateValue('bearishCount', 0, summary.bearish_count, 1000);
+            animateValue('neutralCount', 0, summary.neutral_count, 1000);
+            
+            document.getElementById('bullishPercent').textContent = summary.bullish_percentage.toFixed(1) + '%';
+            document.getElementById('bearishPercent').textContent = summary.bearish_percentage.toFixed(1) + '%';
+            document.getElementById('neutralPercent').textContent = summary.neutral_percentage.toFixed(1) + '%';
+            
+            // Animate sentiment score
+            animateSentiment('avgSentiment', 0, summary.avg_sentiment_score, 1500);
+
+            // Create charts
+            createSentimentPieChart(summary);
+            createSentimentTrendChart(headlines);
+
+            // Display headlines
+            displayHeadlines(headlines);
+        }
+
+        function animateValue(id, start, end, duration) {
+            const element = document.getElementById(id);
+            const startTime = Date.now();
+            
+            function update() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                const current = Math.round(start + (end - start) * progress);
+                element.textContent = current;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+            
+            update();
+        }
+
+        function animateSentiment(id, start, end, duration) {
+            const element = document.getElementById(id);
+            const startTime = Date.now();
+            
+            function update() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                const current = start + (end - start) * progress;
+                element.textContent = current.toFixed(3);
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+            
+            update();
+        }
+
+        function createSentimentPieChart(summary) {
+            const ctx = document.getElementById('sentimentPieChart').getContext('2d');
+            
+            if (sentimentPieChart) {
+                sentimentPieChart.destroy();
+            }
+
+            sentimentPieChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Bullish', 'Bearish', 'Neutral'],
+                    datasets: [{
+                        data: [summary.bullish_count, summary.bearish_count, summary.neutral_count],
+                        backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
+                        borderWidth: 0,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                font: {
+                                    family: 'Inter',
+                                    size: 12,
+                                    weight: '500'
+                                },
+                                color: '#d1d5db'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            cornerRadius: 8
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+
+        function createSentimentTrendChart(headlines) {
+            const ctx = document.getElementById('sentimentTrendChart').getContext('2d');
+            
+            if (sentimentTrendChart) {
+                sentimentTrendChart.destroy();
+            }
+
+            // Group headlines by date
+            const dateGroups = {};
+            headlines.forEach(headline => {
+                const date = headline.published_at.split('T')[0];
+                if (!dateGroups[date]) {
+                    dateGroups[date] = [];
+                }
+                dateGroups[date].push(headline.sentiment_score);
+            });
+
+            // Calculate average sentiment per day
+            const dates = Object.keys(dateGroups).sort();
+            const avgSentiments = dates.map(date => {
+                const scores = dateGroups[date];
+                return scores.reduce((sum, score) => sum + score, 0) / scores.length;
+            });
+
+            sentimentTrendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates.map(date => new Date(date).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Daily Average Sentiment',
+                        data: avgSentiments,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointBackgroundColor: '#6366f1',
+                        pointBorderColor: '#1f2937',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: -1,
+                            max: 1,
+                            grid: {
+                                color: '#374151'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(2);
+                                },
+                                font: {
+                                    family: 'Inter'
+                                },
+                                color: '#9ca3af'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: '#374151'
+                            },
+                            ticks: {
+                                font: {
+                                    family: 'Inter'
+                                },
+                                color: '#9ca3af'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            cornerRadius: 8
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayHeadlines(headlines) {
+            const container = document.getElementById('headlinesList');
+            container.innerHTML = '';
+
+            // Show first 10 headlines
+            headlines.slice(0, 10).forEach((headline, index) => {
+                const div = document.createElement('div');
+                div.className = `headline-item ${headline.sentiment_label.toLowerCase()}`;
+                div.style.animationDelay = `${index * 0.1}s`;
+                
+                const sentimentIcon = {
+                    'BULLISH': 'fas fa-arrow-trend-up',
+                    'BEARISH': 'fas fa-arrow-trend-down', 
+                    'NEUTRAL': 'fas fa-minus'
+                };
+                
+                const icon = sentimentIcon[headline.sentiment_label] || 'fas fa-question';
+                
+                div.innerHTML = `
+                    <div class="headline-title">${headline.title}</div>
+                    <div class="headline-meta">
+                        <span>
+                            <i class="fas fa-calendar"></i>
+                            ${new Date(headline.published_at).toLocaleDateString()}
+                        </span>
+                        <span class="sentiment-badge ${headline.sentiment_label.toLowerCase()}">
+                            <i class="${icon}"></i>
+                            ${headline.sentiment_label} (${headline.sentiment_score.toFixed(3)})
+                        </span>
+                    </div>
+                `;
+                
+                container.appendChild(div);
+            });
+            
+            if (headlines.length > 10) {
+                const moreDiv = document.createElement('div');
+                moreDiv.style.textAlign = 'center';
+                moreDiv.style.marginTop = '1rem';
+                moreDiv.style.color = '#9ca3af';
+                moreDiv.innerHTML = `<i class="fas fa-ellipsis-h"></i> and ${headlines.length - 10} more headlines analyzed`;
+                container.appendChild(moreDiv);
+            }
+        }
+
+        // Test API connection when page loads
+        window.addEventListener('load', async function() {
+            try {
+                const response = await fetch('/api/test');
+                const data = await response.json();
+                console.log('API Status:', data);
+                
+                // Show connection status
+                const statusIndicator = document.querySelector('.status-indicator');
+                if (data.status === 'API is working!') {
+                    statusIndicator.style.backgroundColor = '#10b981';
+                } else {
+                    statusIndicator.style.backgroundColor = '#ef4444';
+                }
+            } catch (error) {
+                console.error('API connection failed:', error);
+                const statusIndicator = document.querySelector('.status-indicator');
+                statusIndicator.style.backgroundColor = '#ef4444';
+            }
+        });
+    </script>
+</body>
+</html>
