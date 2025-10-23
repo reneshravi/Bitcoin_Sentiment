@@ -940,7 +940,9 @@
             });
         }
 
-        window.addEventListener('load', fetchCurrentPrice);
+        window.addEventListener('load', function() {
+            console.log('Dashboard loaded successfully');
+        });
     </script>
 </body>
 </html>
