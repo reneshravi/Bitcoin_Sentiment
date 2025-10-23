@@ -32,9 +32,17 @@ logger = logging.getLogger(__name__)
 
 # Global instances (created once when server starts)
 scraper = CoindeskScraper()
-analyzer = SentimentAnalyzer()
+analyzer = None  # Don't load yet
 price_fetcher = BitcoinPriceFetcher()
 correlation_analyzer = CorrelationAnalyzer()
+
+def get_analyzer():
+    """Lazy load sentiment analyzer only when needed"""
+    global analyzer
+    if analyzer is None:
+        logger.info("Loading sentiment analyzer (first time)...")
+        analyzer = SentimentAnalyzer()
+    return analyzer
 
 # Cache for storing recent results
 cache = {
@@ -89,7 +97,7 @@ def run_sentiment_analysis():
         # Step 2: Analyze sentiment
         logger.info("Analyzing sentiment...")
         headline_texts = [h['title'] for h in headlines]
-        sentiment_results = analyzer.analyze_batch(headline_texts)
+        sentiment_results = get_analyzer().analyze_batch(headline_texts)
 
         # Step 3: Combine data
         combined_data = []
