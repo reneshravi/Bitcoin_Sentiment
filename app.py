@@ -469,20 +469,26 @@ def test_endpoint():
 # ============================================================================
 
 if __name__ == '__main__':
+    import os
+
+    # Get configuration from environment variables (production) or use defaults (development)
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_ENV') != 'production'
+
     print("=" * 60)
     print("Starting Bitcoin Sentiment Dashboard")
     print("=" * 60)
-    print("Dashboard will be available at: http://localhost:5000")
+    print(f"Environment: {'Development' if debug_mode else 'Production'}")
+    print(f"Port: {port}")
     print("\nFeatures:")
     print("  • Sentiment Analysis with finBERT")
     print("  • Bitcoin Price Tracking")
     print("  • Statistical Correlation Analysis")
-    print("  • Predictive Leading Indicator Analysis")
     print("\nPress CTRL+C to quit")
     print("=" * 60)
 
     app.run(
-        debug=True,
-        host='localhost',
-        port=5000
+        debug=debug_mode,
+        host='0.0.0.0',  # Allow external connections
+        port=port
     )
