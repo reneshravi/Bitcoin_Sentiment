@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Sentiment & Price Correlation Dashboard</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #111827;
+            min-height: 100vh;
+            color: #f9fafb;
+            line-height: 1.6;
+        }
+
+        .header {
+            background-color: #1f2937;
+            border-bottom: 1px solid #374151;
+            color: white;
+            padding: 2rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .header-left p {
+            font-size: 1.1rem;
+            color: #d1d5db;
+        }
+
+        .github-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background-color: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 25px;
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .github-link:hover {
+            background-color: #4b5563;
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .controls {
+            background-color: #1f2937;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            margin-bottom: 2rem;
+            border: 1px solid #374151;
+        }
+
+        .controls h2 {
+            margin-bottom: 1.5rem;
+            color: #f9fafb;
+            font-weight: 600;
+        }
+
+        .control-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #374151;
+        }
+
+        .tab-button {
+            padding: 1rem 1.5rem;
+            background: transparent;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button:hover {
+            color: #f9fafb;
+        }
+
+        .tab-button.active {
+            color: #6366f1;
+            border-bottom-color: #6366f1;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .control-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            align-items: end;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #d1d5db;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-group input {
+            padding: 1rem;
+            border: 2px solid #374151;
+            border-radius: 12px;
+            font-size: 1rem;
+            background-color: #111827;
+            color: #f9fafb;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #6366f1;
+            background-color: #1f2937;
+        }
+
+        .btn {
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-self: start;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1, #4338ca);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn:disabled {
+            background-color: #6b7280;
+            background-image: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .info-box {
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: rgba(99, 102, 241, 0.1);
+            border: 1px solid #6366f1;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #d1d5db;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 3rem 0;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(99, 102, 241, 0.2);
+            border-top: 4px solid #6366f1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background-color: #1f2937;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            border: 1px solid #374151;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #6366f1, #0ea5e9);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #d1d5db;
+        }
+
+        .card h3 {
+            color: #9ca3af;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .card .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .card.bullish .value { color: #10b981; }
+        .card.bearish .value { color: #ef4444; }
+        .card.neutral .value { color: #f59e0b; }
+        .card.sentiment .value { color: #6366f1; }
+        .card.price .value { color: #0ea5e9; }
+
+        .correlation-section {
+            background-color: #1f2937;
+            padding: 2rem;
+            border-radius: 20px;
+            border: 1px solid #374151;
+            margin-bottom: 2rem;
+            display: none;
+        }
+
+        .correlation-section h3 {
+            color: #f9fafb;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        .correlation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .correlation-card {
+            background-color: #111827;
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #374151;
+        }
+
+        .correlation-card h4 {
+            color: #9ca3af;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+        }
+
+        .correlation-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .correlation-value.positive { color: #10b981; }
+        .correlation-value.negative { color: #ef4444; }
+
+        .significance-badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+
+        .significance-badge.significant {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .significance-badge.not-significant {
+            background-color: #6b7280;
+            color: white;
+        }
+
+        .interpretation {
+            font-size: 0.9rem;
+            color: #d1d5db;
+            line-height: 1.5;
+            margin-top: 1rem;
+        }
+
+        .charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-container {
+            background-color: #1f2937;
+            padding: 2rem;
+            border-radius: 20px;
+            border: 1px solid #374151;
+            height: 400px;
+            min-height: 400px;
+            max-height: 400px;
+            position: relative;
+        }
+
+        .chart-container canvas {
+            max-height: 320px !important;
+            height: 320px !important;
+        }
+
+        .chart-container h3 {
+            margin-bottom: 1.5rem;
+            color: #f9fafb;
+            font-weight: 600;
+        }
+
+        .headlines {
+            background-color: #1f2937;
+            padding: 2rem;
+            border-radius: 20px;
+            border: 1px solid #374151;
+        }
+
+        .headline-item {
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            background-color: #111827;
+            border-left: 4px solid #374151;
+            transition: all 0.3s ease;
+        }
+
+        .headline-item.bullish { 
+            border-left-color: #10b981;
+            background-color: rgba(16, 185, 129, 0.1);
+        }
+        .headline-item.bearish { 
+            border-left-color: #ef4444;
+            background-color: rgba(239, 68, 68, 0.1);
+        }
+        .headline-item.neutral { 
+            border-left-color: #f59e0b;
+            background-color: rgba(245, 158, 11, 0.1);
+        }
+
+        .headline-title {
+            font-weight: 600;
+            margin-bottom: 0.8rem;
+            color: #f9fafb;
+        }
+
+        .headline-meta {
+            font-size: 0.9rem;
+            color: #9ca3af;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .sentiment-badge {
+            padding: 0.4rem 1rem;
+            border-radius: 25px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .sentiment-badge.bullish { background-color: #10b981; color: white; }
+        .sentiment-badge.bearish { background-color: #ef4444; color: white; }
+        .sentiment-badge.neutral { background-color: #f59e0b; color: white; }
+
+        @media (max-width: 768px) {
+            .charts { grid-template-columns: 1fr; }
+            .control-group { grid-template-columns: 1fr; }
+            .header-content { flex-direction: column; gap: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <h1><i class="fas fa-chart-line"></i> Bitcoin Sentiment & Price Analysis</h1>
+                <p>AI-powered sentiment analysis with price correlation</p>
+            </div>
+            <a href="https://github.com/reneshravi/Bitcoin_Sentiment" class="github-link" target="_blank">
+                <i class="fab fa-github"></i> View on GitHub
+            </a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="controls">
+            <h2><i class="fas fa-sliders-h"></i> Analysis Configuration</h2>
+            
+            <div class="control-tabs">
+                <button class="tab-button active" onclick="switchTab('sentiment')">
+                    <i class="fas fa-brain"></i> Sentiment Analysis
+                </button>
+                <button class="tab-button" onclick="switchTab('correlation')">
+                    <i class="fas fa-chart-area"></i> Price Correlation
+                </button>
+            </div>
+            
+            <!-- Sentiment Tab -->
+            <div id="sentiment-tab" class="tab-content active">
+                <div class="control-group">
+                    <div class="input-group">
+                        <label><i class="fas fa-newspaper"></i> Headlines</label>
+                        <input type="number" id="numHeadlines" value="100" min="10" max="500">
+                    </div>
+                    <div class="input-group">
+                        <label><i class="fas fa-calendar"></i> Days Back</label>
+                        <input type="number" id="daysBack" value="30" min="1" max="60">
+                    </div>
+                    <div class="input-group">
+                        <label><i class="fas fa-layer-group"></i> Max Pages</label>
+                        <input type="number" id="maxPages" value="5" min="1" max="20">
+                    </div>
+                    <button class="btn btn-primary" onclick="runSentimentAnalysis()">
+                        <i class="fas fa-brain"></i> Analyze Sentiment
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Correlation Tab -->
+            <div id="correlation-tab" class="tab-content">
+                <div class="control-group">
+                    <div class="input-group">
+                        <label><i class="fas fa-calendar"></i> Analysis Period (Days)</label>
+                        <input type="number" id="correlationDays" value="30" min="7" max="365">
+                    </div>
+                    <button class="btn btn-success" onclick="runCorrelationAnalysis()">
+                        <i class="fas fa-chart-area"></i> Analyze Correlation
+                    </button>
+                </div>
+                <div class="info-box">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Note:</strong> Run sentiment analysis first to generate data for correlation analysis. More headlines = better correlation results (aim for 20+ overlapping days).
+                </div>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div id="loadingText">Processing...</div>
+        </div>
+
+        <div class="results" id="results">
+            <div class="summary-cards">
+                <div class="card">
+                    <div class="card-icon"><i class="fas fa-newspaper"></i></div>
+                    <h3>Total Headlines</h3>
+                    <div class="value" id="totalHeadlines">0</div>
+                </div>
+                <div class="card bullish">
+                    <div class="card-icon"><i class="fas fa-arrow-trend-up"></i></div>
+                    <h3>Bullish</h3>
+                    <div class="value" id="bullishCount">0</div>
+                    <div class="percentage" id="bullishPercent">0%</div>
+                </div>
+                <div class="card bearish">
+                    <div class="card-icon"><i class="fas fa-arrow-trend-down"></i></div>
+                    <h3>Bearish</h3>
+                    <div class="value" id="bearishCount">0</div>
+                    <div class="percentage" id="bearishPercent">0%</div>
+                </div>
+                <div class="card sentiment">
+                    <div class="card-icon"><i class="fas fa-brain"></i></div>
+                    <h3>Avg Sentiment</h3>
+                    <div class="value" id="avgSentiment">0.000</div>
+                </div>
+                <div class="card price">
+                    <div class="card-icon"><i class="fab fa-bitcoin"></i></div>
+                    <h3>BTC Price</h3>
+                    <div class="value" id="currentPrice">$0</div>
+                    <div class="percentage" id="priceChange">0%</div>
+                </div>
+            </div>
+
+            <!-- Correlation Stats -->
+            <div class="correlation-section" id="correlationSection">
+                <h3><i class="fas fa-chart-area"></i> Price Correlation Analysis</h3>
+                <div class="correlation-grid">
+                    <div class="correlation-card">
+                        <h4>Daily Price Correlation</h4>
+                        <div class="correlation-value" id="dailyCorr">0.000</div>
+                        <span class="significance-badge" id="dailySig">Not Calculated</span>
+                        <div class="interpretation" id="dailyInterp"></div>
+                    </div>
+                    <div class="correlation-card">
+                        <h4>Price Change Correlation</h4>
+                        <div class="correlation-value" id="changeCorr">0.000</div>
+                        <span class="significance-badge" id="changeSig">Not Calculated</span>
+                        <div class="interpretation" id="changeInterp"></div>
+                    </div>
+                    <div class="correlation-card">
+                        <h4>Predictive Accuracy (3-day)</h4>
+                        <div class="correlation-value" id="predAccuracy">0%</div>
+                        <div class="interpretation" id="predInterp"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="charts">
+                <div class="chart-container">
+                    <h3><i class="fas fa-chart-pie"></i> Sentiment Distribution</h3>
+                    <canvas id="sentimentPieChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3><i class="fas fa-chart-line"></i> Sentiment Over Time</h3>
+                    <canvas id="sentimentTrendChart"></canvas>
+                </div>
+                <div class="chart-container" id="priceChartContainer" style="display: none;">
+                    <h3><i class="fab fa-bitcoin"></i> Bitcoin Price Trend</h3>
+                    <canvas id="priceChart"></canvas>
+                </div>
+                <div class="chart-container" id="combinedChartContainer" style="display: none;">
+                    <h3><i class="fas fa-chart-area"></i> Combined Sentiment & Price</h3>
+                    <canvas id="combinedChart"></canvas>
+                </div>
+            </div>
+
+            <div class="headlines">
+                <h3><i class="fas fa-list"></i> Recent Headlines</h3>
+                <div id="headlinesList"></div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <script>
+        let charts = {};
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`${tab}-tab`).classList.add('active');
+        }
+
+        function showLoading(text = 'Processing...') {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('results').style.display = 'block';
+        }
+
+        async function runSentimentAnalysis() {
+            const btn = event.target;
+            const orig = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+
+            showLoading('Analyzing sentiment with finBERT...');
+
+            try {
+                const res = await fetch('/api/sentiment-analysis', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        num_headlines: parseInt(document.getElementById('numHeadlines').value),
+                        days_back: parseInt(document.getElementById('daysBack').value),
+                        max_pages: parseInt(document.getElementById('maxPages').value)
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    displaySentimentResults(data);
+                    await fetchCurrentPrice();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                hideLoading();
+                btn.disabled = false;
+                btn.innerHTML = orig;
+            }
+        }
+
+        async function runCorrelationAnalysis() {
+            const btn = event.target;
+            const orig = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculating...';
+
+            showLoading('Calculating price correlation...');
+
+            try {
+                const res = await fetch('/api/price-correlation', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        days: parseInt(document.getElementById('correlationDays').value)
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    displayCorrelationResults(data);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                hideLoading();
+                btn.disabled = false;
+                btn.innerHTML = orig;
+            }
+        }
+
+        async function fetchCurrentPrice() {
+            try {
+                const res = await fetch('/api/bitcoin-price');
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('currentPrice').textContent = `$${data.current_price.toLocaleString()}`;
+                }
+            } catch (error) {
+                console.error('Price fetch error:', error);
+            }
+        }
+
+        function displaySentimentResults(data) {
+            const s = data.summary;
+            
+            document.getElementById('totalHeadlines').textContent = s.total_headlines;
+            document.getElementById('bullishCount').textContent = s.bullish_count;
+            document.getElementById('bearishCount').textContent = s.bearish_count;
+            document.getElementById('bullishPercent').textContent = s.bullish_percentage.toFixed(1) + '%';
+            document.getElementById('bearishPercent').textContent = s.bearish_percentage.toFixed(1) + '%';
+            document.getElementById('avgSentiment').textContent = s.avg_sentiment_score.toFixed(3);
+
+            createSentimentPieChart(s);
+            createSentimentTrendChart(data.headlines);
+            displayHeadlines(data.headlines);
+        }
+
+        function displayCorrelationResults(data) {
+            document.getElementById('correlationSection').style.display = 'block';
+            document.getElementById('priceChartContainer').style.display = 'block';
+            document.getElementById('combinedChartContainer').style.display = 'block';
+
+            // Daily correlation
+            const daily = data.daily_correlation;
+            document.getElementById('dailyCorr').textContent = daily.correlation.toFixed(3);
+            document.getElementById('dailyCorr').className = `correlation-value ${daily.correlation > 0 ? 'positive' : 'negative'}`;
+            document.getElementById('dailySig').textContent = daily.significant ? 'Significant' : 'Not Significant';
+            document.getElementById('dailySig').className = `significance-badge ${daily.significant ? 'significant' : 'not-significant'}`;
+            document.getElementById('dailyInterp').textContent = `Sample: ${daily.sample_size} days, p=${daily.p_value.toFixed(4)}`;
+
+            // Price change correlation
+            const change = data.price_change_correlation;
+            document.getElementById('changeCorr').textContent = change.correlation.toFixed(3);
+            document.getElementById('changeCorr').className = `correlation-value ${change.correlation > 0 ? 'positive' : 'negative'}`;
+            document.getElementById('changeSig').textContent = change.significant ? 'Significant' : 'Not Significant';
+            document.getElementById('changeSig').className = `significance-badge ${change.significant ? 'significant' : 'not-significant'}`;
+            document.getElementById('changeInterp').textContent = `Sample: ${change.sample_size} days, p=${change.p_value.toFixed(4)}`;
+
+            // Predictive accuracy
+            const pred = data.leading_indicator;
+            document.getElementById('predAccuracy').textContent = pred.prediction_accuracy.toFixed(1) + '%';
+            document.getElementById('predInterp').textContent = `${pred.predictions_correct}/${pred.total_predictions} correct (${pred.lag_days}-day ahead)`;
+
+            // Update price card
+            const stats = data.price_statistics;
+            document.getElementById('priceChange').textContent = `${stats.period_change_pct.toFixed(2)}% (30d)`;
+
+            // Create price charts
+            createPriceChart(data.price_data);
+            createCombinedChart(data);
+        }
+
+        function createSentimentPieChart(summary) {
+            const ctx = document.getElementById('sentimentPieChart').getContext('2d');
+            if (charts.pie) charts.pie.destroy();
+
+            charts.pie = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Bullish', 'Bearish', 'Neutral'],
+                    datasets: [{
+                        data: [summary.bullish_count, summary.bearish_count, summary.neutral_count],
+                        backgroundColor: ['#10b981', '#ef4444', '#f59e0b']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#d1d5db' } } }
+                }
+            });
+        }
+
+        function createSentimentTrendChart(headlines) {
+            const ctx = document.getElementById('sentimentTrendChart').getContext('2d');
+            if (charts.trend) charts.trend.destroy();
+
+            const groups = {};
+            headlines.forEach(h => {
+                const d = h.published_at.split('T')[0];
+                if (!groups[d]) groups[d] = [];
+                groups[d].push(h.sentiment_score);
+            });
+
+            const dates = Object.keys(groups).sort();
+            const avgs = dates.map(d => groups[d].reduce((a,b) => a+b) / groups[d].length);
+
+            charts.trend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates.map(d => new Date(d).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Sentiment',
+                        data: avgs,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { min: -1, max: 1, grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
+                        x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function createPriceChart(priceData) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            if (charts.price) charts.price.destroy();
+
+            charts.price = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: priceData.map(p => new Date(p.date).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Bitcoin Price',
+                        data: priceData.map(p => p.price),
+                        borderColor: '#0ea5e9',
+                        backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { 
+                            grid: { color: '#374151' }, 
+                            ticks: { 
+                                color: '#9ca3af',
+                                callback: v => '$' + v.toLocaleString()
+                            }
+                        },
+                        x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        async function createCombinedChart(corrData) {
+            const ctx = document.getElementById('combinedChart').getContext('2d');
+            if (charts.combined) charts.combined.destroy();
+
+            try {
+                const res = await fetch(`/api/combined-chart-data?days=${corrData.analysis_period_days}`);
+                const data = await res.json();
+                
+                if (!data.success) return;
+
+                const combined = data.combined_data;
+                
+                charts.combined = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: combined.map(d => new Date(d.date).toLocaleDateString()),
+                        datasets: [{
+                            label: 'Bitcoin Price',
+                            data: combined.map(d => d.price),
+                            borderColor: '#0ea5e9',
+                            yAxisID: 'y',
+                            tension: 0.4
+                        }, {
+                            label: 'Sentiment',
+                            data: combined.map(d => d.sentiment),
+                            borderColor: '#6366f1',
+                            yAxisID: 'y1',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                position: 'left',
+                                grid: { color: '#374151' },
+                                ticks: { 
+                                    color: '#9ca3af',
+                                    callback: v => '$' + v.toLocaleString()
+                                }
+                            },
+                            y1: {
+                                position: 'right',
+                                min: -1,
+                                max: 1,
+                                grid: { drawOnChartArea: false },
+                                ticks: { color: '#9ca3af' }
+                            },
+                            x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#d1d5db' } }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Combined chart error:', error);
+            }
+        }
+
+        function displayHeadlines(headlines) {
+            const container = document.getElementById('headlinesList');
+            container.innerHTML = '';
+
+            headlines.slice(0, 10).forEach(h => {
+                const div = document.createElement('div');
+                div.className = `headline-item ${h.sentiment_label.toLowerCase()}`;
+                
+                div.innerHTML = `
+                    <div class="headline-title">${h.title}</div>
+                    <div class="headline-meta">
+                        <span><i class="fas fa-calendar"></i> ${new Date(h.published_at).toLocaleDateString()}</span>
+                        <span class="sentiment-badge ${h.sentiment_label.toLowerCase()}">
+                            ${h.sentiment_label} (${h.sentiment_score.toFixed(3)})
+                        </span>
+                    </div>
+                `;
+                
+                container.appendChild(div);
+            });
+        }
+
+        window.addEventListener('load', fetchCurrentPrice);
+    </script>
+</body>
+</html>
